@@ -2,6 +2,13 @@
 
 ## **Command Line File System Utility**
 
+
+The program is started by npm-script start in following way:
+
+```bash
+npm run start -- --username=your_username
+```
+
 This Node.js command-line utility provides essential file system operations:
 
 Example: 
