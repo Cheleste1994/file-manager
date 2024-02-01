@@ -1,9 +1,5 @@
-import { parse, join } from "path";
 import { homedir } from "os";
 import { createInterface } from "readline";
-import { createReadStream, createWriteStream, unlink } from "fs";
-import crypto from "crypto";
-import { createBrotliCompress, createBrotliDecompress } from "zlib";
 import handleLsCommand from "./navigation/ls.js";
 import handleUpCommand from "./navigation/up.js";
 import handleCdCommand from "./navigation/cd.js";
@@ -13,6 +9,8 @@ import handleAddCommand from "./basic/add.js";
 import handleRnCommand from "./basic/rn.js";
 import handleCpMvCommand from "./basic/cpMv.js";
 import handleRmCommand from "./basic/rm.js";
+import handleHashCommand from "./hash/hash.js";
+import handleCompressDecompressCommand from "./zip/compressDecompress.js";
 
 class App {
   userName;
@@ -100,122 +98,35 @@ class App {
         );
         break;
       case command.startsWith("rm"):
-        handleRmCommand(command.split(" ").slice(1).join(" "), this.currentPath);
+        handleRmCommand(
+          command.split(" ").slice(1).join(" "),
+          this.currentPath
+        );
         break;
       case command.startsWith("hash"):
-        this.handleHashCommand(command.split(" ").slice(1).join(" "));
+        handleHashCommand(
+          command.split(" ").slice(1).join(" "),
+          this.currentPath
+        );
         break;
       case command.startsWith("compress"):
-        this.handleCompressDecompressCommand(
+        handleCompressDecompressCommand(
           command.split(" ").slice(1, 3),
-          "compress"
+          "compress",
+          this.currentPath
         );
         break;
       case command.startsWith("decompress"):
-        this.handleCompressDecompressCommand(
+        handleCompressDecompressCommand(
           command.split(" ").slice(1, 3),
-          "decompress"
+          "decompress",
+          this.currentPath
         );
         break;
 
       default:
         console.log("Invalid input");
     }
-  }
-
-  handleCompressDecompressCommand([prev, next], command = "compress") {
-    if (!prev || !next) {
-      return console.log("Invalid input");
-    }
-
-    let pathToFilePrev;
-
-    if (prev.includes(":")) {
-      pathToFilePrev = join(prev);
-    } else {
-      pathToFilePrev = join(this.currentPath, prev);
-    }
-
-    let pathToFileNext;
-
-    const { base: basePrev } = parse(prev);
-    const { ext: extNext, base: baseNext, dir: dirNext } = parse(next);
-
-    if (next.includes(":")) {
-      pathToFileNext = join(next, extNext ? baseNext : basePrev);
-    } else {
-      if (extNext === ".br") {
-        pathToFileNext = join(this.currentPath, dirNext, baseNext);
-      } else {
-        pathToFileNext = join(this.currentPath, baseNext);
-        pathToFileNext = join(pathToFileNext, basePrev);
-      }
-    }
-
-    if (!pathToFileNext.endsWith(".br") && command === "compress") {
-      pathToFileNext += ".br";
-    }
-
-    if (pathToFileNext.endsWith(".br") && command === "decompress") {
-      pathToFileNext = pathToFileNext.slice(0, -3);
-    }
-
-    const readableStream = createReadStream(pathToFilePrev);
-    const writableStream = createWriteStream(pathToFileNext);
-
-    const brotli =
-      command === "compress"
-        ? createBrotliCompress()
-        : createBrotliDecompress();
-
-    readableStream.pipe(brotli).pipe(writableStream);
-
-    writableStream.on("finish", () => {
-      console.log(
-        `${
-          command === "compress" ? "Compress" : "Decompress"
-        } to ${pathToFileNext} is complete`
-      );
-    });
-
-    readableStream.on("error", (err) => {
-      console.log(`Error reading file: ${err.message}`);
-    });
-
-    writableStream.on("error", (err) => {
-      console.log(`Error writing file: ${err.message}`);
-    });
-  }
-
-  handleHashCommand(command) {
-    if (!command) {
-      return console.log("Invalid input");
-    }
-
-    let pathToFile;
-
-    if (command.includes(":")) {
-      pathToFile = join(command);
-    } else {
-      pathToFile = join(this.currentPath, command);
-    }
-
-    const fileStream = createReadStream(pathToFile, { highWaterMark: 10 });
-
-    fileStream.on("data", (chunk) => {
-      const hash = crypto.createHash("sha256");
-      const finalHex = hash.update(chunk.toString()).digest("hex");
-
-      console.log(`${finalHex}\n`);
-    });
-
-    fileStream.on("error", (error) => {
-      console.log(error.message);
-    });
-
-    fileStream.on("end", () => {
-      console.log("Success!");
-    });
   }
 }
 
